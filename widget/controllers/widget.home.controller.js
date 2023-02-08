@@ -757,9 +757,6 @@
                             $rootScope.showFeed = false;
                             $rootScope.fromSearch = true;
                             $window.deeplinkingDone = true;
-                            // mute the video if shared via PWA to enable the auto play
-                            if($rootScope.autoPlay && WidgetHome.isWeb && !document.hasFocus()) $rootScope.muteVideo = true;
-                            else $rootScope.muteVideo = false;
                             
                             WidgetHome.goTo(itemId);
                         });

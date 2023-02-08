@@ -320,6 +320,13 @@
                     }
                 };
 
+                const isDocumentFocused = () => {
+                    return (('ontouchstart' in window) ||
+                      (navigator.maxTouchPoints > 0) ||
+                      (navigator.msMaxTouchPoints > 0) ||
+                      (document.hasFocus()));
+                }
+
                 WidgetMedia.changeVideoSrc = function () {
                     if (WidgetMedia.item.data.videoUrl) {
                         var myType;
@@ -337,16 +344,16 @@
                         }
 
                         $scope.videoPlayed = false;
+                        let muteVideo = false, documentFocused = isDocumentFocused();
 
+                        // mute the video if shared via PWA to enable the auto play
+                        if($rootScope.autoPlay && Buildfire.getContext().device.platform == 'web' && !documentFocused) muteVideo = true;
+                     
                         WidgetMedia.videoPlayerConfig.sources = [{
                             src: $rootScope.online ? $sce.trustAsUrl(videoUrlToSend) : videoUrlToSend,
                             type: 'video/' + myType, //"video/mp4"
-                            mute: $rootScope.muteVideo
-                        }];
-                        if($rootScope.muteVideo)
-                            setTimeout(()=>{
-                                $rootScope.muteVideo = false;
-                            }, 1000)
+                            mute: muteVideo
+                        }]; 
                     }
                 };
 
