@@ -48,7 +48,7 @@
                         var e = new CustomEvent("loadedmetadata");
                         c.mediaElement[0].dispatchEvent(e);
                     }
-                    function C(l) {
+                    function C(l, mute) {
                         if (l) {
                             var u,
                                 C,
@@ -140,6 +140,7 @@
                                                 !0 === c.autoPlay &&
                                                     n(function () {
                                                         A.src += "&autoplay=1"
+                                                        if(mute) A.src += "&muted=1"
                                                         c.play();
                                                     });
                                         } else m.play().then(function () {});
@@ -157,7 +158,7 @@
                             return c.sources;
                         },
                         function (e, t) {
-                            e && 0 < e.length && e[0].src ? C(e[0].src.toString()) : C(null);
+                            e && 0 < e.length && e[0].src ? C(e[0].src.toString(), e[0].mute) : C(null);
                         }
                     );
                 },

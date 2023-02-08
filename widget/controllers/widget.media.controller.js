@@ -340,8 +340,13 @@
 
                         WidgetMedia.videoPlayerConfig.sources = [{
                             src: $rootScope.online ? $sce.trustAsUrl(videoUrlToSend) : videoUrlToSend,
-                            type: 'video/' + myType //"video/mp4"
+                            type: 'video/' + myType, //"video/mp4"
+                            mute: $rootScope.muteVideo
                         }];
+                        if($rootScope.muteVideo)
+                            setTimeout(()=>{
+                                $rootScope.muteVideo = false;
+                            }, 1000)
                     }
                 };
 
