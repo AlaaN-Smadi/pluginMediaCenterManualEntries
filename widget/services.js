@@ -510,7 +510,7 @@
               processMediaCountsData: function (record, callback) {
                   if(record.data.userId){
                       record = this.getMediaCountDataWithIndex(record);
-                      buildfire.publicData.update(record.id, record.data, 'MediaCount', function (err, result) {
+                      Buildfire.publicData.update(record.id, record.data, 'MediaCount', function (err, result) {
                           if (err) return console.error(err);
                           if (result && result.id) {
                               callback();
@@ -527,16 +527,16 @@
                       this.processMediaCountsData(records[index], () => this.iterateMediaCountData(records, index + 1));
                   } else {
                     // updating data is done for this user ---
-                    buildfire.userData.save(
+                    Buildfire.userData.save(
                         { updated: true },
                         "userIndexingUpdateDone",
                         (err, result) => {
                           if (err) return console.error("Error while saving your data", err);
                       
-                          buildfire.components.popup.display(
+                          Buildfire.dialog.alert(
                             {
                               title: "Database Optimization Done",
-                              richContent: "Database has been successfully updated. Thank you for your patience!",
+                              message: "Database has been successfully updated. Thank you for your patience!",
                             },
                             (err, result) => {
                               if (err) return console.error(err);
@@ -560,7 +560,7 @@
                   }, records = [];
                   
                   const getMediaCountData = () => {
-                      buildfire.publicData.search(searchOptions, "MediaCount", (err, result) => {
+                      Buildfire.publicData.search(searchOptions, "MediaCount", (err, result) => {
                           if (err) console.error(err);
                           if (result.length < searchOptions.limit) {
                               records = records.concat(result);
@@ -577,10 +577,10 @@
                   getMediaCountData();
               },
               showIndexingDialog: function (userId) {
-                buildfire.components.popup.display(
+                Buildfire.dialog.alert(
                     {
                       title: "Data Optimization",
-                      richContent: "We are improving your data, please do not close the app or leave the feature until you see success dialog. This may take a while...",
+                      message: "We are improving your data, please do not close the app or leave the feature until you see success dialog. This may take a while...",
                     },
                     (err, result) => {
                       if (err) return console.error(err);
@@ -589,6 +589,19 @@
                     }
                   );
                   this.startMediaCountDataIndexingUpdate(userId);
+              },
+              validateIndexingUpdate: function(){
+                Buildfire.auth.getCurrentUser((err, user) => {
+                    if(err || !user){
+                        Buildfire.getContext((err, context) => {
+                            if(context && context.device.platform !== 'web'){
+                                this.showIndexingDialog(context.deviceId);
+                            }
+                        })
+                    }else if(user){
+                        this.showIndexingDialog(user._id);
+                    }
+                });
               }
             } 
           
