@@ -487,5 +487,110 @@
             };
 
             return AppDB;
-        }]);
+        }])
+        .factory("PerfomanceIndexingService", ['Buildfire', function (Buildfire) {
+            return {
+              buildMediaCountDataIndex: function (data) {
+                  var index = {
+                      'string1': data.mediaId + "-" + (data.isActive ? "true":"false"),
+                      'text':data.mediaId + "-" + data.userId + '-' + data.mediaType + "-" + (data.isActive ? "true":"false"),
+                      'array1': [{
+                          'string1': data.mediaId + "-" + data.userId + '-' + data.mediaType + "-" + (data.isActive ? "true":"false"),
+                      }]
+                  }
+                  return index;
+              },
+  
+              getMediaCountDataWithIndex: function (item) {
+                  item.data._buildfire = {
+                      index: this.buildMediaCountDataIndex(item.data)
+                  }
+                  return item;
+              },
+              processMediaCountsData: function (record, callback) {
+                  if(record.data.userId){
+                      record = this.getMediaCountDataWithIndex(record);
+                      buildfire.publicData.update(record.id, record.data, 'MediaCount', function (err, result) {
+                          if (err) return console.error(err);
+                          if (result && result.id) {
+                              callback();
+                          }
+                      });
+                  } else {
+                      callback();
+                  }
+                 
+              },
+  
+              iterateMediaCountData: function (records, index) {
+                  if (index !== records.length) {
+                      this.processMediaCountsData(records[index], () => this.iterateMediaCountData(records, index + 1));
+                  } else {
+                    // updating data is done for this user ---
+                    buildfire.userData.save(
+                        { updated: true },
+                        "userIndexingUpdateDone",
+                        (err, result) => {
+                          if (err) return console.error("Error while saving your data", err);
+                      
+                          buildfire.components.popup.display(
+                            {
+                              title: "Database Optimization Done",
+                              richContent: "Database has been successfully updated. Thank you for your patience!",
+                            },
+                            (err, result) => {
+                              if (err) return console.error(err);
+                          
+                              console.log(result);
+                            }
+                          );
+                        }
+                      );
+                  }
+              },
+              startMediaCountDataIndexingUpdate: function (userId) {
+                  let searchOptions = {
+                      limit: 50,
+                      skip: 0,
+                      filter:{
+                          "_buildfire.index.array1.string1": null,
+                          "$json.userId": userId,
+                          "$json.isActive": true,
+                      }
+                  }, records = [];
+                  
+                  const getMediaCountData = () => {
+                      buildfire.publicData.search(searchOptions, "MediaCount", (err, result) => {
+                          if (err) console.error(err);
+                          if (result.length < searchOptions.limit) {
+                              records = records.concat(result);
+                              console.log(records)
+                              this.iterateMediaCountData(records, 0);
+                          } else {
+                              searchOptions.skip = searchOptions.skip + searchOptions.limit;
+                              records = records.concat(result);
+                              return getMediaCountData();
+                          }
+                      })
+                  }
+  
+                  getMediaCountData();
+              },
+              showIndexingDialog: function (userId) {
+                buildfire.components.popup.display(
+                    {
+                      title: "Data Optimization",
+                      richContent: "We are improving your data, please do not close the app or leave the feature until you see success dialog. This may take a while...",
+                    },
+                    (err, result) => {
+                      if (err) return console.error(err);
+                  
+                      console.log(result);
+                    }
+                  );
+                  this.startMediaCountDataIndexingUpdate(userId);
+              }
+            } 
+          
+          }]);
 })(window.angular, window.buildfire, window.location);
