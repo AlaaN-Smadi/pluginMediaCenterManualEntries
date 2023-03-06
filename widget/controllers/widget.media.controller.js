@@ -1,8 +1,8 @@
 (function (angular, window) {
     angular
         .module('mediaCenterWidget')
-        .controller('WidgetMediaCtrl', ['$scope', '$window', 'Messaging', 'Buildfire', 'COLLECTIONS', 'media', 'EVENTS', '$timeout', "$sce", "DB", 'AppDB', 'PATHS', '$rootScope', 'Location', 'OFSTORAGE',
-            function ($scope, $window, Messaging, Buildfire, COLLECTIONS, media, EVENTS, $timeout, $sce, DB, AppDB, PATHS, $rootScope, Location, OFSTORAGE) {
+        .controller('WidgetMediaCtrl', ['$scope', '$window', 'Messaging', 'Buildfire', 'COLLECTIONS', 'media', 'EVENTS', '$timeout', "$sce", "DB", 'AppDB', 'PATHS', '$rootScope', 'Location', 'OFSTORAGE', 'PerformanceIndexingService',
+            function ($scope, $window, Messaging, Buildfire, COLLECTIONS, media, EVENTS, $timeout, $sce, DB, AppDB, PATHS, $rootScope, Location, OFSTORAGE, PerformanceIndexingService) {
                 var WidgetMedia = this;
                 WidgetMedia.API = null;
                 $rootScope.online = $window.navigator.onLine;
@@ -15,7 +15,6 @@
                 WidgetMedia.emptyBG = '../../../styles/media/holder-16x9.png';
                 WidgetMedia.isWeb = Buildfire.getContext().device.platform == 'web';
                 WidgetMedia.loadingData = false;
-                WidgetMedia.indexingUpdateV2Done = false;
 
                 WidgetMedia.fullScreen = false;
                 WidgetMedia.oldVideoStyle = { position: "", width: "", height: "", marginTop: "" };
@@ -31,10 +30,6 @@
                         }
                     };
                 }
-                
-                buildfire.datastore.get('MediaCenter', (err, result) => {
-                    WidgetMedia.indexingUpdateV2Done = result.data.indexingUpdateV2Done;
-                })
 
                 var allCheckViewFilter = {
                     filter: {
@@ -300,9 +295,9 @@
                 const getIndexedFilter = (mediaId, userId, mediaType) => {
                     let filter = {};
 
-                    if(WidgetMedia.indexingUpdateV2Done === true){
+                    if(PerformanceIndexingService.userIndexingUpdateDone === true){
                         filter = {
-                            "_buildfire.index.array1.string1": mediaId + "-" + userId + "-" + mediaType + "-true" 
+                            "_buildfire.index.array1.string1": "mediaCount-" + mediaId + "-" + userId + "-" + mediaType + "-true" 
                         };
                     }else{
                         filter = {

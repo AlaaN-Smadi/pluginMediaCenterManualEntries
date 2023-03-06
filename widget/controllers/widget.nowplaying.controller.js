@@ -1,8 +1,8 @@
 (function (angular) {
     angular
         .module('mediaCenterWidget')
-        .controller('NowPlayingCtrl', ['$scope', 'media', 'Buildfire', 'Modals', 'COLLECTIONS', '$rootScope', 'Location', 'EVENTS', 'PATHS', 'DB', 'AppDB',
-            function ($scope, media, Buildfire, Modals, COLLECTIONS, $rootScope, Location, EVENTS, PATHS, DB, AppDB) {
+        .controller('NowPlayingCtrl', ['$scope', 'media', 'Buildfire', 'Modals', 'COLLECTIONS', '$rootScope', 'Location', 'EVENTS', 'PATHS', 'DB', 'AppDB', 'PerformanceIndexingService',
+            function ($scope, media, Buildfire, Modals, COLLECTIONS, $rootScope, Location, EVENTS, PATHS, DB, AppDB, PerformanceIndexingService) {
                 $rootScope.blackBackground = true;
                 $rootScope.showFeed = false;
                 var audioPlayer = Buildfire.services.media.audioPlayer;
@@ -19,7 +19,6 @@
                 $rootScope.seekTime = null;
                 NowPlaying.isOnline = window.navigator.onLine;
 
-                NowPlaying.indexingUpdateV2Done= false;
                 NowPlaying.item = media;
                 NowPlaying.playing = false;
                 NowPlaying.paused = false;
@@ -32,40 +31,36 @@
                 bookmarks.sync($scope);
 
                 if(!NowPlaying.isOnline) initAudio(0);
-                buildfire.datastore.get('MediaCenter', (err, result) => {
-                    NowPlaying.indexingUpdateV2Done = result.data.indexingUpdateV2Done;
-
-                    Buildfire.auth.getCurrentUser((err, user) => {
-                        var userCheckViewFilter = {};
-                        if (user) {
-                            $rootScope.user = user
-                            userCheckViewFilter = {
-                                filter: getIndexedFilter(media.id, $rootScope.user._id)
-                            };
-                        } else if (Buildfire.context.deviceId) {
-                            userCheckViewFilter = {
-                                filter: getIndexedFilter(media.id, Buildfire.context.deviceId)
-                            };
-                        } else {
-                            initAudio(0)
-                        }
-                        if (user || Buildfire.context.deviceId) {
-                            buildfire.publicData.search(userCheckViewFilter, COLLECTIONS.MediaCount, function (err, res) {
-                                if (res.length > 0) {
-                                    NowPlaying.isAudioPlayed = true;
-                                    if (res[0].data.lastPosition) {
-                                        initAudio(res[0].data.lastPosition)
-                                    } else {
-                                        initAudio(0)
-                                    }
+                Buildfire.auth.getCurrentUser((err, user) => {
+                    var userCheckViewFilter = {};
+                    if (user) {
+                        $rootScope.user = user
+                        userCheckViewFilter = {
+                            filter: getIndexedFilter(media.id, $rootScope.user._id)
+                        };
+                    } else if (Buildfire.context.deviceId) {
+                        userCheckViewFilter = {
+                            filter: getIndexedFilter(media.id, Buildfire.context.deviceId)
+                        };
+                    } else {
+                        initAudio(0)
+                    }
+                    if (user || Buildfire.context.deviceId) {
+                        buildfire.publicData.search(userCheckViewFilter, COLLECTIONS.MediaCount, function (err, res) {
+                            if (res.length > 0) {
+                                NowPlaying.isAudioPlayed = true;
+                                if (res[0].data.lastPosition) {
+                                    initAudio(res[0].data.lastPosition)
                                 } else {
-                                    NowPlaying.isAudioPlayed = false;
                                     initAudio(0)
                                 }
-                            })
-                        }
-                    });
-                })
+                            } else {
+                                NowPlaying.isAudioPlayed = false;
+                                initAudio(0)
+                            }
+                        })
+                    }
+                });
 
                 var playListArrayOfStrings = [
                     { key: "addedPlaylist", text: "Added to playlist" },
@@ -428,8 +423,6 @@
                             NowPlaying.isAudioPlayerPlayingAnotherSong = false;
                         }
                     });
-
-
                 }
 
                 function updateAudioLastPosition(mediaId, trackLastPosition) {
@@ -466,9 +459,9 @@
                 function getIndexedFilter(mediaId, userId) {
                     let filter = {};
 
-                    if(NowPlaying.indexingUpdateV2Done){
+                    if(PerformanceIndexingService.userIndexingUpdateDone){
                         filter = {
-                            "_buildfire.index.array1.string1": mediaId + "-" + userId + "-AUDIO-true" 
+                            "_buildfire.index.array1.string1": "mediaCount-" + mediaId + "-" + userId + "-AUDIO-true" 
                         };
                     }else{
                         filter = {

@@ -488,122 +488,123 @@
 
             return AppDB;
         }])
-        .factory("PerfomanceIndexingService", ['Buildfire', function (Buildfire) {
+        .factory("PerformanceIndexingService", ['Buildfire', 'OFSTORAGE', function (Buildfire, OFSTORAGE) {
             return {
-              buildMediaCountDataIndex: function (data) {
-                  var index = {
-                      'string1': data.mediaId + "-" + (data.isActive ? "true":"false"),
-                      'text':data.mediaId + "-" + data.userId + '-' + data.mediaType + "-" + (data.isActive ? "true":"false"),
-                      'array1': [{
-                          'string1': data.mediaId + "-" + data.userId + '-' + data.mediaType + "-" + (data.isActive ? "true":"false"),
-                      }]
-                  }
-                  return index;
-              },
-  
-              getMediaCountDataWithIndex: function (item) {
-                  item.data._buildfire = {
-                      index: this.buildMediaCountDataIndex(item.data)
-                  }
-                  return item;
-              },
-              processMediaCountsData: function (record, callback) {
-                  if(record.data.userId){
-                      record = this.getMediaCountDataWithIndex(record);
-                      Buildfire.publicData.update(record.id, record.data, 'MediaCount', function (err, result) {
-                          if (err) return console.error(err);
-                          if (result && result.id) {
-                              callback();
-                          }
-                      });
-                  } else {
-                      callback();
-                  }
-                 
-              },
-  
-              iterateMediaCountData: function (records, index) {
-                  if (index !== records.length) {
-                      this.processMediaCountsData(records[index], () => this.iterateMediaCountData(records, index + 1));
-                  } else {
-                    // updating data is done for this user ---
-                    Buildfire.userData.save(
-                        { updated: true },
-                        "userIndexingUpdateDone",
-                        (err, result) => {
-                          if (err) return console.error("Error while saving your data", err);
-                      
-                          Buildfire.dialog.alert(
-                            {
-                              title: "Database Optimization Done",
-                              message: "Database has been successfully updated. Thank you for your patience!",
-                            },
+                userIndexingUpdateDone: false,
+                indexingUpdateFor:'',
+                CachedIndexingUpdateDone: new OFSTORAGE({
+                    path: "/data/mediaCenterManual",
+                    fileName: "cachedIndexingUpdateDone"
+                }),
+                
+                buildMediaCountDataIndex: function (data) {
+                    var index = {
+                        'string1': data.mediaId + "-" + (data.isActive ? "true":"false"),
+                        'text':data.mediaId + "-" + data.userId + '-' + data.mediaType + "-" + (data.isActive ? "true":"false"),
+                        'array1': [{
+                            'string1': 'mediaCount-' + data.mediaId + "-" + data.userId + '-' + data.mediaType + "-" + (data.isActive ? "true":"false"),
+                        }]
+                    }
+                    return index;
+                },
+    
+                getMediaCountDataWithIndex: function (item) {
+                    item.data._buildfire = {
+                        index: this.buildMediaCountDataIndex(item.data)
+                    }
+                    return item;
+                },
+                processMediaCountsData: function (record, callback) {
+                    if(record.data.userId){
+                        record = this.getMediaCountDataWithIndex(record);
+                        Buildfire.publicData.update(record.id, record.data, 'MediaCount', function (err, result) {
+                            if (err) return console.error(err);
+                            if (result && result.id) {
+                                callback();
+                            }
+                        });
+                    } else {
+                        callback();
+                    }
+                    
+                },
+                iterateMediaCountData: function (records, index) {
+                    if (index !== records.length) {
+                        this.processMediaCountsData(records[index], () => this.iterateMediaCountData(records, index + 1));
+                    } else {
+                    if(this.indexingUpdateFor === 'user'){
+                        Buildfire.userData.save(
+                            { updated: true },
+                            "userIndexingUpdateDone",
                             (err, result) => {
-                              if (err) return console.error(err);
-                          
-                              console.log(result);
+                              if (err) return console.error("Error while saving your data", err);
+                              this.userIndexingUpdateDone = true;
                             }
                           );
-                        }
-                      );
-                  }
-              },
-              startMediaCountDataIndexingUpdate: function (userId) {
-                  let searchOptions = {
-                      limit: 50,
-                      skip: 0,
-                      filter:{
-                          "_buildfire.index.array1.string1": null,
-                          "$json.userId": userId,
-                          "$json.isActive": true,
-                      }
-                  }, records = [];
-                  
-                  const getMediaCountData = () => {
-                      Buildfire.publicData.search(searchOptions, "MediaCount", (err, result) => {
-                          if (err) console.error(err);
-                          if (result.length < searchOptions.limit) {
-                              records = records.concat(result);
-                              console.log(records)
-                              this.iterateMediaCountData(records, 0);
-                          } else {
-                              searchOptions.skip = searchOptions.skip + searchOptions.limit;
-                              records = records.concat(result);
-                              return getMediaCountData();
-                          }
-                      })
-                  }
-  
-                  getMediaCountData();
-              },
-              showIndexingDialog: function (userId) {
-                Buildfire.dialog.alert(
-                    {
-                      title: "Data Optimization",
-                      message: "We are improving your data, please do not close the app or leave the feature until you see success dialog. This may take a while...",
-                    },
-                    (err, result) => {
-                      if (err) return console.error(err);
-                  
-                      console.log(result);
+                    }else{
+                        this.CachedIndexingUpdateDone.insert({ updated: true }, (e,r)=>{
+                            if (e) return console.error("Error while saving device data", e);
+                            this.userIndexingUpdateDone = true;
+                        })
                     }
-                  );
-                  this.startMediaCountDataIndexingUpdate(userId);
+                  }
               },
-              validateIndexingUpdate: function(){
-                Buildfire.auth.getCurrentUser((err, user) => {
-                    if(err || !user){
-                        Buildfire.getContext((err, context) => {
-                            if(context && context.device.platform !== 'web'){
-                                this.showIndexingDialog(context.deviceId);
+                startMediaCountDataIndexingUpdate: function (userId) {
+                    let searchOptions = {
+                        limit: 50,
+                        skip: 0,
+                        filter:{
+                            "_buildfire.index.array1.string1": null,
+                            "$json.userId": userId,
+                            "$json.isActive": true,
+                        }
+                    }, records = [];
+                    
+                    const getMediaCountData = () => {
+                        Buildfire.publicData.search(searchOptions, "MediaCount", (err, result) => {
+                            if (err) console.error(err);
+                            if (result.length < searchOptions.limit) {
+                                records = records.concat(result);
+                                this.iterateMediaCountData(records, 0);
+                            } else {
+                                searchOptions.skip = searchOptions.skip + searchOptions.limit;
+                                records = records.concat(result);
+                                return getMediaCountData();
                             }
                         })
-                    }else if(user){
-                        this.showIndexingDialog(user._id);
+                    }
+  
+                    getMediaCountData();
+                },
+                validateIndexingUpdate: function(){
+                Buildfire.auth.getCurrentUser((err, user) => {
+                    if(user){
+                        Buildfire.userData.get("userIndexingUpdateDone", (err, res) => {
+                            if (err) return console.error("Error while retrieving your data", err);
+                            if(!res || !res.data || !res.data.updated ){
+                                this.indexingUpdateFor = 'user';
+                                this.startMediaCountDataIndexingUpdate(user._id);
+                            }else if(res && res.data && res.data.updated){
+                                this.userIndexingUpdateDone = true;
+                            }
+                        });
+                    }else{
+                        Buildfire.getContext((err, context) => {
+                            if(context && context.device.platform !== 'web'){
+                                this.CachedIndexingUpdateDone.get((err, res) => {
+                                    if(err) return console.error("Error while retrieving cached data", err);
+                                    if(!res || !res.updated){
+                                        this.indexingUpdateFor = 'device';
+                                        this.startMediaCountDataIndexingUpdate(context.deviceId);
+                                    }else if(res && res.updated){
+                                        this.userIndexingUpdateDone = true;
+                                    }
+                                })
+                            }
+                        })
                     }
                 });
               }
             } 
-          
           }]);
 })(window.angular, window.buildfire, window.location);
